@@ -7,6 +7,7 @@ import asyncio
 import math
 import functools
 import re
+import demjson
 
 # type 0普通 1双倍 2 公会战 3 活动
 
@@ -28,8 +29,7 @@ lock = {
     'jp': asyncio.Lock(),
 }
 
-list_api = 'https://api.biligame.com/news/list.action?gameExtensionId=267&positionId=2&pageNum=1&pageSize=30&typeId='
-detail_api = 'https://api.biligame.com/news/%s.action'
+list_api = 'https://static.biligame.com/pcr/gw/calendar.js?t=%s'
 
 
 def cache(ttl=timedelta(hours=1), arg_key=None):
@@ -63,7 +63,7 @@ def cache(ttl=timedelta(hours=1), arg_key=None):
     return wrap
 
 
-@cache(ttl=timedelta(hours=12), arg_key='url')
+@cache(ttl=timedelta(hours=3), arg_key='url')
 async def query_data(url):
     try:
         async with aiohttp.ClientSession() as session:
@@ -74,73 +74,78 @@ async def query_data(url):
     return None
 
 
+@cache(ttl=timedelta(hours=3), arg_key='url')
+async def query_cn_data(url):
+    try:
+        url = url % datetime.now()
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                text_data = await resp.text()
+                searchObj = re.search(
+                    r'\s*var\s+data\s*\=\s*(\[[\w\W]*?\])', text_data, re.MULTILINE | re.I)
+                group_result = searchObj.groups()
+                if len(group_result) > 0:
+                    return demjson.decode(group_result[0])
+    except:
+        pass
+    return None
+
+
+def get_cn_hdtype(hdtype):
+    if hdtype == 'tdz':
+        return 3
+    elif hdtype == 'qdhd':
+        return 2
+    elif hdtype == 'jqhd' or hdtype == 'jssr':
+        return 1
+    else:
+        return 0
+
+
 async def load_event_cn():
-    result = await query_data(url=list_api)
-    if result and 'code' in result and result['code'] == 0:
+    result = await query_cn_data(url=list_api)
+    if result:
         event_data['cn'] = []
-        datalist = result['data']
-        for item in datalist:
-            # ignore = False
-            # for ann_id in ignored_ann_ids:
-            #     if ann_id == item["id"]:
-            #         ignore = True
-            #         break
-            # if ignore:
-            #     continue
-
-            # for keyword in ignored_key_words:
-            #     if keyword in item['title']:
-            #         ignore = True
-            #         break
-            #     if ignore:
-            #         continue
-
-            # 从正文中获取活动时间
-            content_result = await query_data(url=detail_api % item["id"])
-            if not (content_result and 'code' in content_result and content_result['code'] == 0):
-                # 直接跳过？
+        filter_time = datetime.now()-timedelta(days=60)
+        tmp_event = {}
+        hdcontent_rex = re.compile(
+            r"<div class='cl-t'>(.+?)<\/div>(?:<div class='cl-d'>(.+?)<\/div>)?")
+        for month_data in result:
+            ctime = datetime.strptime(
+                f"{month_data['year']}-{month_data['month']}-1", r"%Y-%m-%d")
+            if ctime < filter_time:
+                # 两个月前的还解析个啥
                 continue
 
-            detail = content_result['data']['content']
-            # 有些是直接写在卡池上的艹
-            searchObj = re.search(
-                r'(\d+)\/(\d+)\s+(?:维护后)?(\d+)?:?(\d+)?\s*(?:~|-)\s*(\d+)\/(\d+)\s+(\d+):(\d+)', detail, re.M | re.I)
+            for hdday, hddic in month_data['day'].items():
+                hdtime = datetime.strptime(
+                    f"{month_data['year']}-{month_data['month']}-{hdday}", r"%Y-%m-%d")
+                for hdtype, hdcontent in hddic.items():
+                    if not hdcontent:
+                        # 无此类型活动
+                        continue
+                    hdcontent_list = hdcontent_rex.findall(
+                        hdcontent)
+                    for hdc in hdcontent_list:
+                        if len(hdc) < 1:
+                            continue
+                        hdtitle = hdc[0]
+                        if len(hdc) > 1:
+                            hdtitle += ' '+hdc[1]
+                        if hdtitle in tmp_event.keys():
+                            # 更新时间，反正要遍历不是
+                            if hdtime < tmp_event[hdtitle]['start']:
+                                tmp_event[hdtitle]['start'] = hdtime
+                            if hdtime > tmp_event[hdtitle]['end']:
+                                tmp_event[hdtitle]['end'] = hdtime
 
-            try:
-                datelist = searchObj.groups()  # ('2021', '9', '17', '9', '17')
-            except Exception as e:
-                continue
-            if not (datelist and len(datelist) >= 8):
-                continue
+                        else:
+                            tmp_event[hdtitle] = {'title': hdtitle,
+                                                  'start': hdtime,
+                                                  'end': hdtime,
+                                                  'type': get_cn_hdtype(hdtype)}
 
-            syear = datetime.now().year
-            smonth = int(datelist[0])
-            sday = int(datelist[1])
-            shour = datelist[2] and int(datelist[2]) or 0
-            sminute = datelist[3] and int(datelist[3]) or 0
-
-            emonth = int(datelist[4])
-            eday = int(datelist[5])
-            ehour = int(datelist[6])
-            eminute = int(datelist[7])
-            eyear = smonth > emonth and syear+1 or syear
-
-            start_time = datetime.strptime(
-                f'{syear}-{smonth}-{sday} {shour}:{sminute}', r"%Y-%m-%d  %H:%M")
-            end_time = datetime.strptime(
-                f'{eyear}-{emonth}-{eday} {ehour}:{eminute}', r"%Y-%m-%d  %H:%M")
-            event = {'title': item['title'],
-                     'start': start_time,
-                     'end': end_time,
-                     'forever': False,
-                     'type': 0}
-
-            if '团队战' in item['title']:
-                event['type'] = 3
-            elif '倍' in item['title']:
-                event['type'] = 2
-            elif '开启' in item['title']:
-                event['type'] = 1
+        for key, event in tmp_event.items():
             event_data['cn'].append(event)
         return 0
     return 1

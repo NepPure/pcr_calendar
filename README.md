@@ -8,15 +8,16 @@
 
 ## 日程信息源
 
-- 国服: [MahoMaho INSIGHT!! 真步真步视界术](https://mahomaho-insight.info/)
+- 国服: 官网日历
 - 台服: [蘭德索爾圖書館](https://pcredivewiki.tw/)
 - 日服: [https://tools.yobot.win/](https://tools.yobot.win/calender/#jp)
 
 ## 安装方法
 
-1. 在HoshinoBot的插件目录modules下clone本项目 `git clone https://github.com/zyujs/pcr_calendar.git`
+1. 在HoshinoBot的插件目录modules下clone本项目 `git clone https://github.com/NepPure/pcr_calendar.git`
 1. 在 `config/__bot__.py`的模块列表里加入 `pcr_calendar`
 1. 重启HoshinoBot
+1. 注意自行安装依赖
 
 ## 指令列表
 
