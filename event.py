@@ -118,8 +118,10 @@ async def load_event_cn():
                 continue
 
             for hdday, hddic in month_data['day'].items():
-                hdtime = datetime.strptime(
+                hdstarttime = datetime.strptime(
                     f"{month_data['year']}-{month_data['month']}-{hdday}", r"%Y-%m-%d")
+                hdendtime = datetime.strptime(
+                    f"{month_data['year']}-{month_data['month']}-{hdday} 23:59", r"%Y-%m-%d  %H:%M")
                 for hdtype, hdcontent in hddic.items():
                     if not hdcontent:
                         # 无此类型活动
@@ -134,15 +136,15 @@ async def load_event_cn():
                             hdtitle += ' '+hdc[1]
                         if hdtitle in tmp_event.keys():
                             # 更新时间，反正要遍历不是
-                            if hdtime < tmp_event[hdtitle]['start']:
-                                tmp_event[hdtitle]['start'] = hdtime
-                            if hdtime > tmp_event[hdtitle]['end']:
-                                tmp_event[hdtitle]['end'] = hdtime
+                            if hdstarttime < tmp_event[hdtitle]['start']:
+                                tmp_event[hdtitle]['start'] = hdstarttime
+                            if hdendtime > tmp_event[hdtitle]['end']:
+                                tmp_event[hdtitle]['end'] = hdendtime
 
                         else:
                             tmp_event[hdtitle] = {'title': hdtitle,
-                                                  'start': hdtime,
-                                                  'end': hdtime,
+                                                  'start': hdstarttime,
+                                                  'end': hdendtime,
                                                   'type': get_cn_hdtype(hdtype)}
 
         for key, event in tmp_event.items():
