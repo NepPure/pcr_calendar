@@ -121,7 +121,7 @@ async def load_event_cn():
                 hdstarttime = datetime.strptime(
                     f"{month_data['year']}-{month_data['month']}-{hdday} 05:00", r"%Y-%m-%d %H:%M")
                 hdendtime = datetime.strptime(
-                    f"{month_data['year']}-{month_data['month']}-{hdday} 23:59", r"%Y-%m-%d %H:%M")
+                    f"{month_data['year']}-{month_data['month']}-{hdday} 04:59", r"%Y-%m-%d %H:%M")
                 for hdtype, hdcontent in hddic.items():
                     if not hdcontent:
                         # 无此类型活动
