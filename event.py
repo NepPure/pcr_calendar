@@ -148,6 +148,10 @@ async def load_event_cn():
                                                   'type': get_cn_hdtype(hdtype)}
 
         for key, event in tmp_event.items():
+            # 处理只有一天的特殊情况
+            if event['end'] < event['start']:
+                event['end'] += timedelta(hours=19)
+
             event_data['cn'].append(event)
         return 0
     return 1
