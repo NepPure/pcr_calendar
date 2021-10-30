@@ -122,10 +122,16 @@ async def load_event_cn():
                     f"{month_data['year']}-{month_data['month']}-{hdday} 05:00", r"%Y-%m-%d %H:%M")
                 hdendtime = datetime.strptime(
                     f"{month_data['year']}-{month_data['month']}-{hdday} 04:59", r"%Y-%m-%d %H:%M")
+
                 for hdtype, hdcontent in hddic.items():
                     if not hdcontent:
                         # 无此类型活动
                         continue
+                    if get_cn_hdtype(hdtype) == 3:
+                        # 团队战一般是当天24点结束
+                        hdendtime = datetime.strptime(
+                            f"{month_data['year']}-{month_data['month']}-{hdday} 23:59", r"%Y-%m-%d %H:%M")
+
                     hdcontent_list = hdcontent_rex.findall(
                         hdcontent)
                     for hdc in hdcontent_list:
