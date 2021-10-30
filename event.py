@@ -91,12 +91,14 @@ async def query_cn_data(url):
     return None
 
 
-def get_cn_hdtype(hdtype):
+def get_cn_hdtype(hdtype, hdtitle=None):
     if hdtype == 'tdz':
         return 3
     elif hdtype == 'qdhd':
+        if hdtitle and '扭蛋' in hdtitle:
+            return 1
         return 2
-    elif hdtype == 'jqhd' or hdtype == 'jssr':
+    elif hdtype == 'jqhd':
         return 1
     else:
         return 0
@@ -151,7 +153,7 @@ async def load_event_cn():
                             tmp_event[hdtitle] = {'title': hdtitle,
                                                   'start': hdstarttime,
                                                   'end': hdendtime,
-                                                  'type': get_cn_hdtype(hdtype)}
+                                                  'type': get_cn_hdtype(hdtype, hdtitle)}
 
         for key, event in tmp_event.items():
             # 处理只有一天的特殊情况
