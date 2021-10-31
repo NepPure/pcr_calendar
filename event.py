@@ -122,15 +122,16 @@ async def load_event_cn():
             for hdday, hddic in month_data['day'].items():
                 hdstarttime = datetime.strptime(
                     f"{month_data['year']}-{month_data['month']}-{hdday} 05:00", r"%Y-%m-%d %H:%M")
-                hdendtime = datetime.strptime(
-                    f"{month_data['year']}-{month_data['month']}-{hdday} 04:59", r"%Y-%m-%d %H:%M")
 
                 for hdtype, hdcontent in hddic.items():
                     if not hdcontent:
                         # 无此类型活动
                         continue
-                    if get_cn_hdtype(hdtype) == 3:
-                        # 团队战一般是当天24点结束
+                    if hdtype == 'qdhd':
+                        # 双倍和抽卡一般04:59
+                        hdendtime = datetime.strptime(
+                            f"{month_data['year']}-{month_data['month']}-{hdday} 04:59", r"%Y-%m-%d %H:%M")
+                    else:
                         hdendtime = datetime.strptime(
                             f"{month_data['year']}-{month_data['month']}-{hdday} 23:59", r"%Y-%m-%d %H:%M")
 
@@ -220,18 +221,14 @@ def get_pcr_now(offset):
     if pcr_now.hour < 5:
         pcr_now -= timedelta(days=1)
     pcr_now = pcr_now.replace(
-        hour=18, minute=0, second=0, microsecond=0)  # 用晚6点做基准
+        hour=5, minute=0, second=0, microsecond=0)  # 用早5点做基准
     pcr_now = pcr_now + timedelta(days=offset)
     return pcr_now
 
 
 async def get_events(server, offset, days):
     events = []
-    pcr_now = datetime.now()
-    if pcr_now.hour < 5:
-        pcr_now -= timedelta(days=1)
-    pcr_now = pcr_now.replace(
-        hour=18, minute=0, second=0, microsecond=0)  # 用晚6点做基准
+    pcr_now = get_pcr_now(0)
 
     await lock[server].acquire()
     try:
@@ -244,7 +241,7 @@ async def get_events(server, offset, days):
 
     start = pcr_now + timedelta(days=offset)
     end = start + timedelta(days=days)
-    end -= timedelta(hours=18)  # 晚上12点结束
+    end -= timedelta(hours=5)  # 晚上12点结束
 
     for event in event_data[server]:
         if end > event['start'] and start < event['end']:  # 在指定时间段内 已开始 且 未结束
@@ -255,7 +252,7 @@ async def get_events(server, offset, days):
             events.append(event)
     # 按type从大到小 按剩余天数从小到大
     events.sort(key=lambda item: item["type"]
-                * 100 - item['left_days'], reverse=True)
+                * 100 - item['left_days'] - item['start_days'], reverse=True)
     return events
 
 
